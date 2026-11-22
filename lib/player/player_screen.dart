@@ -207,6 +207,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       brightnessGesture: true,
       seekBarThumbSize: 14,
       seekBarHeight: 3,
+      // Keep the timeline off the bottom edge: Android uses it for system
+      // gestures (home, assistant), which swallowed drags on the timeline.
+      seekBarMargin: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+      bottomButtonBarMargin: const EdgeInsets.fromLTRB(16, 0, 8, 40),
       buttonBarButtonSize: 28,
       topButtonBar: top,
       bottomButtonBar: [
