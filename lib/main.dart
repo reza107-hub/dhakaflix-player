@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'app.dart';
-import 'core/source.dart';
 import 'data/store.dart';
 
 Future<void> main() async {
@@ -15,6 +14,6 @@ Future<void> main() async {
   });
   MediaKit.ensureInitialized();
   final store = await Store.open();
-  final state = AppState(store, await store.setting(Settings.baseUrl) ?? defaultBaseUrl);
+  final state = await AppState.load(store);
   runApp(DhakaFlixApp(state: state));
 }

@@ -51,20 +51,29 @@ class ErrorView extends StatelessWidget {
 /// [siblings] is not known (needed for subtitles, versions and next episode).
 Future<void> openEntry(BuildContext context, Entry e, {List<Entry>? siblings}) async {
   final app = AppScope.read(context);
+  final source = app.source(e.sourceId);
+  if (source == null || !source.enabled) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This server is turned off or removed. Turn it on in Settings.')),
+    );
+    return;
+  }
   if (e.isDir) {
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => FolderPage(href: e.href)));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => FolderPage(sourceId: e.sourceId, href: e.href)));
     return;
   }
   var sibs = siblings;
   if (sibs == null) {
     try {
-      sibs = await app.client.list(parentOf(e.href));
+      sibs = await app.client(e.sourceId).list(parentOf(e.href));
     } catch (_) {
       sibs = const []; // Still playable; just no sidecars/versions/next.
     }
   }
   if (!context.mounted) return;
-  final controller = PlayerController(source: app.source, store: app.store);
+  final controller = PlayerController(source: source, store: app.store);
   await Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => PlayerScreen(controller: controller, entry: e, siblings: sibs!),
@@ -89,7 +98,10 @@ class EntryTile extends StatelessWidget {
       if (!e.isDir && resolutionOf(e.name) != null) resolutionLabel(resolutionOf(e.name)!),
       if (!e.isDir) extensionOf(e.name).toUpperCase(),
     ].where((s) => s.isNotEmpty).join(' · ');
-    final path = showPath ? decodeHref(parentOf(e.href)).replaceFirst(decodeHref(app.source.rootHref), '') : '';
+    final source = app.source(e.sourceId);
+    final path = !showPath || source == null
+        ? ''
+        : '${source.name} · ${decodeHref(parentOf(e.href)).replaceFirst(decodeHref(source.rootHref), '')}';
     return ListTile(
       leading: Icon(e.isDir ? Icons.folder_outlined : Icons.movie_outlined),
       title: Text(e.name, maxLines: 2, overflow: TextOverflow.ellipsis),

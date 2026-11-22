@@ -13,9 +13,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late final TextEditingController _url;
-  String? _urlError;
-  String? _urlWarning;
   int _seek = 10;
   bool _subsOn = false;
   bool _autoNext = true;
@@ -26,9 +23,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.didChangeDependencies();
     if (_loaded) return;
     _loaded = true;
-    final app = AppScope.read(context);
-    _url = TextEditingController(text: app.source.base.toString());
-    _load(app.store);
+    _load(AppScope.read(context).store);
   }
 
   Future<void> _load(Store store) async {
@@ -44,30 +39,25 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  @override
-  void dispose() {
-    _url.dispose();
-    super.dispose();
+  Future<void> _setEnabled(DhakaFlixSource s, bool on) async {
+    final app = AppScope.read(context);
+    await app.updateSources(app.sources.setEnabled(s.id, on));
   }
 
-  Future<void> _saveUrl() async {
+  Future<void> _remove(DhakaFlixSource s) async {
     final app = AppScope.read(context);
-    try {
-      final uri = parseBaseUrl(_url.text);
-      await app.setBaseUrl(_url.text);
-      setState(() {
-        _urlError = null;
-        // Android blocks plain HTTP to hosts not built into the app.
-        _urlWarning = Platform.isAndroid && uri.scheme == 'http' && !knownHosts.contains(uri.host)
-            ? 'This app version only allows plain HTTP to ${knownHosts.join(', ')}. '
-                  'Other addresses will not load on Android.'
-            : null;
-        _url.text = app.source.base.toString();
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Address saved.')));
-    } on FormatException catch (e) {
-      setState(() => _urlError = e.message);
-    }
+    await app.updateSources(app.sources.remove(s.id));
+  }
+
+  Future<void> _addServer() async {
+    final app = AppScope.read(context);
+    final added = await showDialog<SourceList>(
+      context: context,
+      builder: (_) => _AddServerDialog(sources: app.sources),
+    );
+    if (added == null || !mounted) return;
+    await app.updateSources(added);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Server added.')));
   }
 
   Future<void> _set(String key, String value) => AppScope.read(context).store.setSetting(key, value);
@@ -102,21 +92,27 @@ class _SettingsPageState extends State<SettingsPage> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: TextField(
-                controller: _url,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                onSubmitted: (_) => _saveUrl(),
-                decoration: InputDecoration(
-                  labelText: 'DhakaFlix address',
-                  helperText: _urlWarning ?? 'Default: $defaultBaseUrl',
-                  helperMaxLines: 3,
-                  errorText: _urlError,
-                  suffixIcon: IconButton(tooltip: 'Save', icon: const Icon(Icons.check), onPressed: _saveUrl),
-                ),
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text('Servers', style: Theme.of(context).textTheme.titleSmall),
             ),
+            for (final s in AppScope.of(context).sources.all)
+              SwitchListTile(
+                title: Text(s.name),
+                subtitle: Text(
+                  [s.base.toString(), if (_blockedOnAndroid(s.base)) _androidWarning].join('\n'),
+                ),
+                isThreeLine: _blockedOnAndroid(s.base),
+                value: s.enabled,
+                onChanged: (v) => _setEnabled(s, v),
+                secondary: s.builtIn
+                    ? const Icon(Icons.dns_outlined)
+                    : IconButton(
+                        tooltip: 'Remove server',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _remove(s),
+                      ),
+              ),
+            ListTile(leading: const Icon(Icons.add), title: const Text('Add server'), onTap: _addServer),
             const Divider(),
             ListTile(
               title: const Text('Skip forward / back'),
@@ -170,5 +166,71 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     ),
+  );
+}
+
+/// Android only allows plain HTTP to the hosts built into the app.
+bool _blockedOnAndroid(Uri base) => Platform.isAndroid && base.scheme == 'http' && !knownHosts.contains(base.host);
+
+const _androidWarning =
+    'Android only allows plain HTTP to the built-in DhakaFlix hosts. This address will not load on Android.';
+
+class _AddServerDialog extends StatefulWidget {
+  const _AddServerDialog({required this.sources});
+  final SourceList sources;
+  @override
+  State<_AddServerDialog> createState() => _AddServerDialogState();
+}
+
+class _AddServerDialogState extends State<_AddServerDialog> {
+  final _url = TextEditingController();
+  String? _error;
+  String? _warning;
+
+  @override
+  void dispose() {
+    _url.dispose();
+    super.dispose();
+  }
+
+  void _check(String text) {
+    try {
+      setState(() => _warning = _blockedOnAndroid(parseBaseUrl(text)) ? _androidWarning : null);
+    } on FormatException {
+      setState(() => _warning = null);
+    }
+  }
+
+  void _save() {
+    try {
+      Navigator.pop(context, widget.sources.addCustom(_url.text));
+    } on FormatException catch (e) {
+      setState(() => _error = e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add server'),
+    content: TextField(
+      controller: _url,
+      autofocus: true,
+      keyboardType: TextInputType.url,
+      autocorrect: false,
+      onChanged: _check,
+      onSubmitted: (_) => _save(),
+      decoration: InputDecoration(
+        labelText: 'Address',
+        hintText: 'http://172.16.50.14/DHAKA-FLIX-14/',
+        helperText: _warning,
+        helperMaxLines: 4,
+        errorText: _error,
+        errorMaxLines: 3,
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      FilledButton(onPressed: _save, child: const Text('Add')),
+    ],
   );
 }

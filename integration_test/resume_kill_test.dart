@@ -61,7 +61,7 @@ void main() {
       }
       fail('process was not killed');
     } else {
-      final saved = await store.progress(source.relativePath(e.href), e.size!);
+      final saved = await store.progress(source.id, source.relativePath(e.href), e.size!);
       debugPrint('RK SAVED ${saved?.position.inMilliseconds}');
       expect(saved, isNotNull, reason: 'nothing was saved before the kill');
       var resumed = Duration.zero;

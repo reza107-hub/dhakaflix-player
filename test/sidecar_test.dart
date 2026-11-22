@@ -2,7 +2,7 @@ import 'package:dhakaflix_player/core/dhakaflix_client.dart';
 import 'package:dhakaflix_player/player/sidecar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Entry f(String name) => Entry(href: '/D/f/${Uri.encodeComponent(name)}', isDir: false, size: 1);
+Entry f(String name) => Entry(sourceId: 'df14', href: '/D/f/${Uri.encodeComponent(name)}', isDir: false, size: 1);
 
 List<String> names(List<Entry> l) => l.map((e) => e.name).toList();
 

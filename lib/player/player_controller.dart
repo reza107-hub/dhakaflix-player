@@ -156,6 +156,7 @@ class PlayerController extends ChangeNotifier {
   /// Opens [entry] (a video file inside the source) and resumes it.
   /// [startAt] overrides the saved position (used when switching versions).
   Future<void> open(Entry entry, {List<Entry> siblings = const [], Duration? startAt}) async {
+    if (entry.sourceId != source.id) throw ArgumentError('Entry is from another server: ${entry.sourceId}');
     final url = source.urlFor(entry.href);
     if (!source.allows(url)) throw ArgumentError('Refusing to play outside DhakaFlix: $url');
     await _saveNow();
@@ -170,12 +171,15 @@ class PlayerController extends ChangeNotifier {
         SubtitleOption._('ext:${s.href}', '${sidecarLanguage(s.name) ?? 'External'} · ${s.name}', sidecar: s),
     ];
     seekStep = Duration(seconds: int.tryParse(await store.setting(Settings.seekSeconds) ?? '') ?? 10);
-    final saved = await store.progress(source.relativePath(entry.href), entry.size ?? 0);
+    final saved = await store.progress(source.id, source.relativePath(entry.href), entry.size ?? 0);
     final start = startAt ?? ((saved != null && !saved.watched) ? saved.position : Duration.zero);
     _lastGood = start;
     await _openAt(url, start);
+    if (_disposed) return; // Closed (e.g. Back pressed) while loading.
     await _applyTrackChoices(saved);
+    if (_disposed) return;
     await _refreshAudioId();
+    if (_disposed) return;
     _startSaving();
     notifyListeners();
   }
@@ -184,7 +188,7 @@ class PlayerController extends ChangeNotifier {
     await player.open(Media(url.toString(), start: start > Duration.zero ? start : null));
     // Wait for tracks/duration so choices and seeks apply to this file.
     await player.stream.duration
-        .firstWhere((d) => d > Duration.zero)
+        .firstWhere((d) => d > Duration.zero, orElse: () => Duration.zero) // Stream ends if closed meanwhile.
         .timeout(const Duration(seconds: 30), onTimeout: () => Duration.zero);
     _knownDuration = player.state.duration;
   }
@@ -342,6 +346,7 @@ class PlayerController extends ChangeNotifier {
     final dur = _knownDuration;
     if (e == null || dur <= Duration.zero || _disposed) return;
     await store.saveProgress(
+      sourceId: source.id,
       relPath: source.relativePath(e.href),
       size: e.size ?? 0,
       href: e.href,
@@ -410,7 +415,7 @@ class PlayerController extends ChangeNotifier {
       'reconnect: opened, duration=${player.state.duration} pos=${player.state.position} playing=${player.state.playing}',
     );
     // Re-apply current choices (open() resets tracks).
-    await _applyTrackChoices(await store.progress(source.relativePath(e.href), e.size ?? 0));
+    await _applyTrackChoices(await store.progress(source.id, source.relativePath(e.href), e.size ?? 0));
     await _refreshAudioId();
     if (player.state.duration > Duration.zero) {
       reconnecting = null;

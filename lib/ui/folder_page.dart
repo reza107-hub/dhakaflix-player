@@ -8,7 +8,8 @@ import 'common.dart';
 
 /// One DhakaFlix folder: subfolders, then videos in natural order.
 class FolderPage extends StatefulWidget {
-  const FolderPage({super.key, required this.href});
+  const FolderPage({super.key, required this.sourceId, required this.href});
+  final String sourceId;
   final String href;
 
   @override
@@ -24,7 +25,7 @@ class _FolderPageState extends State<FolderPage> {
     _items ??= _load();
   }
 
-  Future<List<Entry>> _load() => AppScope.read(context).client.list(widget.href);
+  Future<List<Entry>> _load() => AppScope.read(context).client(widget.sourceId).list(widget.href);
 
   @override
   Widget build(BuildContext context) => Scaffold(

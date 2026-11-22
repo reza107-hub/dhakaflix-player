@@ -38,7 +38,10 @@ class DhakaFlixError implements Exception {
 }
 
 class Entry {
-  const Entry({required this.href, required this.isDir, this.size, this.modified});
+  const Entry({required this.sourceId, required this.href, required this.isDir, this.size, this.modified});
+
+  /// Server this entry is on (see `DhakaFlixSource.id`).
+  final String sourceId;
 
   /// Percent-encoded absolute href exactly as the server sent it.
   final String href;
@@ -49,11 +52,12 @@ class Entry {
   String get name => nameOf(href);
   String get folderPath => decodeHref(parentOf(href));
 
-  static Entry fromJson(Map<String, dynamic> j) {
+  static Entry fromJson(String sourceId, Map<String, dynamic> j) {
     final href = j['href'] as String;
     final size = j['size'];
     final time = j['time'];
     return Entry(
+      sourceId: sourceId,
       href: href,
       isDir: href.endsWith('/'),
       size: size is num ? size.toInt() : null,
@@ -96,7 +100,7 @@ class DhakaFlixClient {
     final json = await _post(folderHref, body, listTimeout, retries: 1);
     final items = (json['items'] as List? ?? const []).cast<Map<String, dynamic>>();
     final children = items
-        .map(Entry.fromJson)
+        .map((j) => Entry.fromJson(source.id, j))
         .where((e) => e.href != folderHref && parentOf(e.href) == folderHref)
         .toList();
     return sortEntries(children);
@@ -115,7 +119,7 @@ class DhakaFlixClient {
       };
       final json = await _post(scope, body, searchTimeout, abort: abort.future);
       final items = (json['search'] as List? ?? const []).cast<Map<String, dynamic>>();
-      return items.map(Entry.fromJson).where((e) => source.isInside(e.href)).toList();
+      return items.map((j) => Entry.fromJson(source.id, j)).where((e) => source.isInside(e.href)).toList();
     }
 
     return SearchHandle._(run(), abort);

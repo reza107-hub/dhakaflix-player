@@ -206,7 +206,7 @@ void main() {
     await Future<void>.delayed(const Duration(seconds: 6)); // Periodic save.
     final saved = c.player.state.position;
     await stop(tester);
-    final row = await store.progress(source.relativePath(e.href), e.size!);
+    final row = await store.progress(source.id, source.relativePath(e.href), e.size!);
     expect((row!.position - saved).inSeconds.abs(), lessThan(7));
     c = await start(tester, e, sibs);
     final resumedAt = c.player.state.position;

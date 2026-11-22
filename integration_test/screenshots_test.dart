@@ -49,13 +49,14 @@ void main() {
       final store = await Store.open(fileName: 'shots_$label.db');
       // Seed Continue watching with one real episode.
       await store.saveProgress(
+        sourceId: 'df14',
         relPath: 'x',
         size: 404455447,
         href: '/DHAKA-FLIX-14/KOREAN%20TV%20%26%20WEB%20Series/18%20Again%20%28TV%20Series%202020%29%20720p%20%5BDual%20Audio%5D/Season%201/18%20Again%20S01E01%20%20720p%20AMZN%20WEBRip%20x265%20HEVC%20ESub%20%5BDual%20Audio%5D%5BHindi%202.0%2BKorean%202.0%5D%20-MsMod.mkv',
         position: const Duration(minutes: 41),
         duration: const Duration(minutes: 66),
       );
-      final app = AppState(store, defaultBaseUrl);
+      final app = AppState(store, SourceList.load(null));
       await t.pumpWidget(
         RepaintBoundary(
           key: key,

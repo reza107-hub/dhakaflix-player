@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cleartext HTTP only for known DhakaFlix hosts. Keep in sync with knownHosts in lib/core/source.dart. -->
+<!--
+  Cleartext HTTP is allowed ONLY for these exact DhakaFlix hosts; everything
+  else must use HTTPS. Android cannot match IP ranges, so each server needs
+  its own <domain> line. To add a server: add a line here AND add the host to
+  knownHosts / defaultSources in lib/core/source.dart.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">172.16.50.14</domain>
+        <domain includeSubdomains="false">172.16.50.7</domain>
+        <domain includeSubdomains="false">172.16.50.12</domain>
+        <domain includeSubdomains="false">172.16.50.10</domain>
     </domain-config>
 </network-security-config>

@@ -4,12 +4,14 @@
 library;
 
 import 'package:dhakaflix_player/core/dhakaflix_client.dart';
+import 'package:dhakaflix_player/core/multi_search.dart';
 import 'package:dhakaflix_player/core/source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
-  final src = DhakaFlixSource(defaultBaseUrl);
+  final all = SourceList.load(null);
+  final src = all.byId('df14')!;
   late DhakaFlixClient client;
   setUp(() => client = DhakaFlixClient(src));
   tearDown(() => client.close());
@@ -64,5 +66,55 @@ void main() {
     final dead = DhakaFlixClient(DhakaFlixSource('http://127.0.0.1:9/DHAKA-FLIX-14/'));
     await expectLater(dead.list('/DHAKA-FLIX-14/'), throwsA(isA<DhakaFlixUnreachable>()));
     dead.close();
+  });
+
+  // Every server: same API shapes, regex-safe search, Range, cancel.
+  for (final s in all.all) {
+    group(s.name, () {
+      late DhakaFlixClient c;
+      setUp(() => c = DhakaFlixClient(s));
+      tearDown(() => c.close());
+
+      test('root lists folders that belong to this server', () async {
+        final root = await c.list(s.rootHref);
+        expect(root.where((e) => e.isDir), isNotEmpty);
+        expect(root.every((e) => e.sourceId == s.id && s.isInside(e.href)), isTrue);
+      });
+
+      test('search with "(" works (escaped), then a Range GET on a hit returns 206', () async {
+        final hits = await c.search('(20').results;
+        final video = hits.firstWhere((e) => !e.isDir && RegExp(r'\.(mkv|mp4|avi)$', caseSensitive: false).hasMatch(e.name));
+        expect(video.sourceId, s.id);
+        final url = s.urlFor(video.href);
+        expect(all.allows(url), isTrue);
+        final res = await http.get(url, headers: {'Range': 'bytes=1000-2023', 'User-Agent': userAgent});
+        expect(res.statusCode, 206);
+        expect(res.bodyBytes.length, 1024);
+      });
+
+      test('a search can be cancelled', () async {
+        final h = c.search('the');
+        h.cancel();
+        await expectLater(h.results, throwsA(isA<http.RequestAbortedException>()));
+      });
+    });
+  }
+
+  test('MultiSearch over all four servers answers from each', () async {
+    final clients = {for (final s in all.all) s: DhakaFlixClient(s)};
+    final got = await MultiSearch(clients, 'avatar').results.toList();
+    expect(got.map((r) => r.source.id).toSet(), {'df14', 'df7', 'df12', 'df10'});
+    expect(got.every((r) => r.error == null), isTrue);
+    expect(mergeResults(got, all.all), isNotEmpty);
+    for (final c in clients.values) {
+      c.close();
+    }
+  });
+
+  test('one unreachable server does not hide the others', () async {
+    final dead = DhakaFlixSource('http://127.0.0.1:9/DHAKA-FLIX-14/', id: 'dead');
+    final got = await MultiSearch({src: DhakaFlixClient(src), dead: DhakaFlixClient(dead)}, 'godfather').results.toList();
+    expect(got.singleWhere((r) => r.source.id == 'dead').error, isA<DhakaFlixUnreachable>());
+    expect(got.singleWhere((r) => r.source.id == 'df14').entries, isNotEmpty);
   });
 }
