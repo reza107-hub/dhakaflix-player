@@ -9,8 +9,9 @@
 </p>
 
 **DhakaFlix Player** is a free, open-source **FTP player** for the DhakaFlix
-media server (the h5ai file index many Bangladeshi ISPs offer, for example
-`http://172.16.50.14/DHAKA-FLIX-14/`). Search for a movie or series, tap it
+media servers (the h5ai file indexes many Bangladeshi ISPs offer). It comes
+with four servers built in: DHAKA-FLIX-14, DHAKA-FLIX-7, DHAKA-FLIX-12 and
+DHAKA-FLIX-10. Search for a movie or series, tap it
 and watch straight away. You don't need to download the file first or install VLC.
 It plays the formats DhakaFlix actually uses: MKV, HEVC 10-bit, AC3, DTS,
 several audio languages and styled subtitles.
@@ -26,18 +27,19 @@ several audio languages and styled subtitles.
 ## Screenshots
 
 <p>
-  <img src="docs/screenshots/phone-home.png" width="200" alt="Phone home screen with a search box, Continue watching with a progress bar, and the DhakaFlix category folders">
-  <img src="docs/screenshots/phone-search.png" width="200" alt="Phone search results for 'godfather' showing matching folders with their category paths">
+  <img src="docs/screenshots/phone-home.png" width="200" alt="Phone home screen with a search box, Continue watching with a progress bar, and the category folders of each DhakaFlix server">
+  <img src="docs/screenshots/phone-search.png" width="200" alt="Phone search results for 'godfather' from all servers, with server filter chips and each result's server and folder path">
   <img src="docs/screenshots/phone-episodes.png" width="200" alt="Phone season folder listing episodes S01E01 to S01E06 in order with size, resolution and format">
-  <img src="docs/screenshots/phone-settings.png" width="200" alt="Phone settings: DhakaFlix address, skip seconds, subtitles on by default, auto-play next episode, clear history">
+  <img src="docs/screenshots/phone-settings.png" width="200" alt="Phone settings: four DhakaFlix servers with on/off switches, Add server, skip seconds, subtitles on by default, auto-play next episode, clear history">
 </p>
 <p>
-  <img src="docs/screenshots/desktop-home.png" width="820" alt="Desktop window with the home screen: search box, Continue watching and the category list centred in the window">
+  <img src="docs/screenshots/desktop-home.png" width="820" alt="Desktop window with the home screen: search box, Continue watching and the folders of each server centred in the window">
 </p>
 
 ## Features
 
-- **Search** the whole DhakaFlix server by name. Results show the folder path, size and resolution.
+- **Search all servers at once** by name, or filter to one server. Results show the server, folder path, size and resolution. If one server is down, the others still show.
+- **Four servers built in** (DHAKA-FLIX-14, -7, -12, -10). Turn each on or off, or add your own, in Settings.
 - **Browse** folders. Episodes are listed in natural order (E2 before E10).
 - **Plays directly**, with no conversion: H.264, HEVC/H.265 (including 10-bit), AC3, E-AC3, DTS, AAC and more. Hardware decoding is used when available.
 - **Audio track menu** with language names (Hindi, English, Korean…). It remembers the language you prefer.
@@ -59,15 +61,16 @@ several audio languages and styled subtitles.
 
 ## Requirements
 
-- **You must be on a network that can reach the DhakaFlix server.** In practice,
+- **You must be on a network that can reach the DhakaFlix servers.** In practice,
   that means your ISP's network (home Wi-Fi or a wired connection from that ISP).
   On mobile data or another ISP, the app shows *"DhakaFlix is not reachable.
   Connect to the ISP network."*
 - DhakaFlix uses plain HTTP. **Android only allows plain HTTP to the hosts
-  built into the app** (currently `172.16.50.14`). On Android, a different
-  DhakaFlix address will only work after it is added to the app and the app is rebuilt
-  (see [Build from source](#build-from-source)). Windows and Linux accept any
-  address.
+  built into the app**: `172.16.50.14`, `172.16.50.7`, `172.16.50.12` and
+  `172.16.50.10`. On Android, a server you add with another host will only work
+  after that host is added to the app and the app is rebuilt (see
+  [Build from source](#build-from-source)); the app warns you when you add one.
+  Windows and Linux accept any address.
 
 ## Install
 
@@ -142,9 +145,17 @@ To remove it: `sudo apt remove dhakaflix-player`.
 
 ## First run
 
-The default address is `http://172.16.50.14/DHAKA-FLIX-14/`. To use another
-DhakaFlix server, open **Settings → DhakaFlix address**, enter the full folder
-address and press ✓. Settings also has the skip interval, subtitles on by
+All four built-in servers are on by default:
+
+| Server | Address |
+|---|---|
+| DHAKA-FLIX-14 | `http://172.16.50.14/DHAKA-FLIX-14/` |
+| DHAKA-FLIX-7 | `http://172.16.50.7/DHAKA-FLIX-7/` |
+| DHAKA-FLIX-12 | `http://172.16.50.12/DHAKA-FLIX-12/` |
+| DHAKA-FLIX-10 | `http://172.16.50.10/DHAKA-FLIX-10/` |
+
+In **Settings → Servers** you can turn a server off (it disappears from Home
+and search) or **Add server** with its full folder address. Settings also has the skip interval, subtitles on by
 default, auto-play next episode and clear history.
 
 ## Troubleshooting
@@ -181,9 +192,11 @@ tool/build_deb.sh               # .deb for the machine you build on
 tool/build_deb_in_container.sh debian12   # portable .deb (needs podman/docker)
 ```
 
-To add another DhakaFlix host for Android, add it to `knownHosts` in
-`lib/core/source.dart` **and** to
-`android/app/src/main/res/xml/network_security_config.xml`.
+To add another built-in DhakaFlix server, add it to `defaultSources` and
+`knownHosts` in `lib/core/source.dart` **and** add its host to
+`android/app/src/main/res/xml/network_security_config.xml` (one `<domain>`
+line per host; Android cannot match IP ranges). A unit test checks that the two
+lists match.
 
 **Release signing (maintainers).** Android release builds are signed with
 the key from environment variables (`DFP_KEYSTORE`, `DFP_KEYSTORE_PASSWORD`,
@@ -219,6 +232,7 @@ v3.0**; see [LICENSE](LICENSE). Third-party components and their licences
 **FTP player**। মুভি বা সিরিজ খুঁজুন, ট্যাপ করুন, আর সাথে সাথে দেখুন। আগে ডাউনলোড
 করতে হবে না, VLC-ও লাগবে না। MKV, HEVC 10-bit, AC3/DTS, একাধিক অডিও ভাষা আর সাবটাইটেল সাপোর্ট করে।
 
+- **সার্ভার:** চারটি সার্ভার আগে থেকেই যুক্ত: DHAKA-FLIX-14, DHAKA-FLIX-7, DHAKA-FLIX-12 ও DHAKA-FLIX-10। সার্চ একসাথে সব সার্ভারে খোঁজে; চাইলে একটি সার্ভার বেছে নিতে পারেন। Settings থেকে যেকোনো সার্ভার বন্ধ/চালু করা যায়।
 - **শর্ত:** আপনার ISP-এর নেটওয়ার্কে (যেখান থেকে DhakaFlix খোলে) সংযুক্ত থাকতে হবে।
   মোবাইল ডেটায় কাজ করবে না।
 - **Android:** Releases থেকে `arm64-v8a` APK নামিয়ে ইনস্টল করুন। "Install unknown apps"

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 – more servers
+
+- Four DhakaFlix servers built in: DHAKA-FLIX-14, DHAKA-FLIX-7, DHAKA-FLIX-12
+  and DHAKA-FLIX-10. Turn each on or off in Settings, or add your own.
+- Search looks in all servers at once. Results appear as each server answers,
+  show which server they are on, and can be filtered to one server. If a
+  server does not answer, the others still show, with a note.
+- Home lists the folders of each server. Continue watching works across all
+  servers.
+- Your watch history and resume positions from 1.0.0 are kept.
+- Fixed a crash when leaving the player while the next episode was loading.
+
 ## 1.0.0 – first release
 
 - Search DhakaFlix by name (folders and files), browse folders, episodes in

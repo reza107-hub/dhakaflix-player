@@ -68,6 +68,9 @@ void main() {
 
       await t.enterText(find.byType(TextField), 'godfather');
       await waitFor(t, find.textContaining(' results'));
+      for (var i = 0; i < 240 && find.textContaining('waiting for').evaluate().isNotEmpty; i++) {
+        await t.pump(const Duration(milliseconds: 250)); // All servers answered.
+      }
       await shot(t, '${label}_2_search');
 
       await t.tap(find.byTooltip('Clear'));
