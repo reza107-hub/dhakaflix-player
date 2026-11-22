@@ -15,7 +15,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "dev.dhakaflix.player"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -29,11 +28,30 @@ android {
         versionName = flutter.versionName
     }
 
+    // Release signing comes only from environment variables, never from files
+    // in this repository. Locally: `. tool/signing.sh`; in CI: GitHub secrets.
+    val keystorePath = System.getenv("DFP_KEYSTORE")
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("DFP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("DFP_KEY_ALIAS")
+                keyPassword = System.getenv("DFP_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Without signing variables, fall back to debug keys so local test
+            // builds still work. Such APKs must not be published.
+            signingConfig = if (keystorePath != null) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("DFP_KEYSTORE not set: release APK is signed with the DEBUG key.")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

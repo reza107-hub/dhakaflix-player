@@ -1,0 +1,16 @@
+DhakaFlix Player - portable build
+=================================
+
+1. Unzip this folder anywhere (for example on a USB drive).
+2. Run dhakaflix_player.exe.
+
+Keep all files together: the .exe needs the DLLs and the "data" folder.
+
+Watch history and settings are stored in your Windows user profile
+(%APPDATA%\dev.dhakaflix\DhakaFlix Player), not in this folder.
+
+Windows may show "Windows protected your PC" (SmartScreen) because the app
+is not code-signed. Click "More info", then "Run anyway".
+
+Works only on a network that can reach the DhakaFlix server.
+Licence: GPL-3.0 (LICENSE.txt). Third-party notices: NOTICE.md.

@@ -1,0 +1,183 @@
+# Builds all release artefacts and publishes a GitHub Release.
+#
+# Trigger: push a tag like v1.0.0  (or run manually from the Actions tab;
+# manual runs build everything but do not publish a release).
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   ANDROID_KEYSTORE_BASE64   base64 of the release .jks
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+# No secret values live in this file.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.50.1'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing; refusing to publish a debug-signed APK."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+      - name: Build APKs (one per ABI)
+        env:
+          DFP_KEYSTORE: ${{ runner.temp }}/release.jks
+          DFP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DFP_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DFP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --split-per-abi --target-platform android-arm64,android-arm,android-x64
+          v=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
+          mkdir -p dist
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "build/app/outputs/flutter-apk/app-$abi-release.apk" "dist/DhakaFlixPlayer-$v-android-$abi.apk"
+          done
+      - name: Verify APK signature is the release key
+        run: |
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          "$apksigner" verify --print-certs dist/*arm64-v8a.apk | tee certs.txt
+          if grep -q "CN=Android Debug" certs.txt; then echo "::error::APK is debug-signed"; exit 1; fi
+          rm -f "$RUNNER_TEMP/release.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Built on the oldest supported distro so the package runs there and on newer ones.
+          - image: debian:12      # Debian 12+, Ubuntu 24.04+, Mint 22+ (libmpv2)
+            suffix: ''
+          - image: ubuntu:22.04   # Ubuntu 22.04, Mint 21 (libmpv1)
+            suffix: '_ubuntu22.04'
+    container: ${{ matrix.image }}
+    steps:
+      - name: Install build tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates git curl unzip xz-utils \
+            clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev dpkg-dev
+      - uses: actions/checkout@v4
+      - name: Install Flutter
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Build .deb
+        env:
+          DEB_SUFFIX: ${{ matrix.suffix }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          flutter config --no-analytics
+          flutter pub get
+          tool/build_deb.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux${{ matrix.suffix }}
+          path: build/dist/*.deb
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build
+        run: flutter build windows --release
+      - name: Package installer and portable zip
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          $rel = "build\windows\x64\runner\Release"
+          New-Item -ItemType Directory -Force build\dist | Out-Null
+          # Portable zip: the Release folder plus licence files and a short readme.
+          $portable = "build\portable\DhakaFlixPlayer-$v-windows-x64"
+          New-Item -ItemType Directory -Force $portable | Out-Null
+          Copy-Item -Recurse "$rel\*" $portable
+          Copy-Item LICENSE "$portable\LICENSE.txt"
+          Copy-Item NOTICE.md, packaging\windows\PORTABLE.txt $portable
+          Compress-Archive -Path $portable -DestinationPath "build\dist\DhakaFlixPlayer-$v-windows-x64-portable.zip"
+          # Installer (Inno Setup is preinstalled on GitHub's Windows runners).
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          & $iscc "/DAppVersion=$v" "/DSourceDir=$PWD\$rel" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, linux, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums and release notes
+        run: |
+          cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS && cd ..
+          prev=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          {
+            echo "## Downloads"
+            echo
+            echo "| Platform | File |"
+            echo "|---|---|"
+            echo "| Android (most phones) | \`*-android-arm64-v8a.apk\` |"
+            echo "| Android (older 32-bit phones) | \`*-android-armeabi-v7a.apk\` |"
+            echo "| Windows 10/11 | \`*-windows-x64-setup.exe\` or the portable \`.zip\` |"
+            echo "| Debian 12+, Ubuntu 24.04+ | \`dhakaflix-player_*_amd64.deb\` |"
+            echo "| Ubuntu 22.04 | \`dhakaflix-player_*_ubuntu22.04_amd64.deb\` |"
+            echo
+            echo "Works only on a network that can reach the DhakaFlix server. See the README for install notes."
+            echo
+            echo "## Changes"
+            echo
+            if [ -n "$prev" ]; then range="$prev..$GITHUB_REF_NAME"; else range="$GITHUB_REF_NAME"; fi
+            git log --no-merges --pretty='- %s' "$range"
+          } > notes.md
+          cat notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+          files: dist/*

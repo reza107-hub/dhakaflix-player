@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=DhakaFlix Player
+GenericName=Video Player
+Comment=Watch movies and series from DhakaFlix on your ISP network
+Exec=dhakaflix-player
+Icon=dhakaflix-player
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=dhakaflix;movies;series;video;player;
+StartupWMClass=dhakaflix_player

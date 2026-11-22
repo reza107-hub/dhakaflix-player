@@ -52,3 +52,13 @@ app.*.map.json
 
 # Project-local Gradle cache (see tool/env.sh)
 .gradle-home/
+
+# Signing material must never be committed (kept outside the repo; see README)
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+signing.env
+.env
+.env.*

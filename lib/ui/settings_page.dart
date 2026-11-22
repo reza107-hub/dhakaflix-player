@@ -159,9 +159,11 @@ class _SettingsPageState extends State<SettingsPage> {
             const AboutListTile(
               icon: Icon(Icons.info_outline),
               applicationName: 'DhakaFlix Player',
-              applicationVersion: '0.1.0',
+              applicationVersion: appVersion,
               aboutBoxChildren: [
                 Text('Plays videos from a DhakaFlix server on your ISP network. Nothing is uploaded or shared.'),
+                SizedBox(height: 8),
+                Text('Free software under the GNU GPL v3. Video playback uses mpv and FFmpeg (LGPL).'),
               ],
             ),
           ],

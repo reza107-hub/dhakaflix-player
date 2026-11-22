@@ -10,7 +10,9 @@ const defaultBaseUrl = 'http://172.16.50.14/DHAKA-FLIX-14/';
 /// blocks cleartext to any host not listed there.
 const knownHosts = {'172.16.50.14'};
 
-const userAgent = 'DhakaFlixPlayer/0.1.0';
+/// Keep in sync with `version:` in pubspec.yaml.
+const appVersion = '1.0.0';
+const userAgent = 'DhakaFlixPlayer/$appVersion';
 
 class DhakaFlixSource {
   DhakaFlixSource(String baseUrl) : base = parseBaseUrl(baseUrl);
