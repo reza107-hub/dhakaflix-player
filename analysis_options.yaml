@@ -10,6 +10,11 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  errors:
+    # package:flutter/material.dart is deprecated in favour of package:material_ui,
+    # but media_kit_video's controls are built on flutter/material. Using one
+    # Material library everywhere avoids two incompatible Theme/Material classes.
+    deprecated_member_use: ignore
   exclude:
     - build/**
     - android/**

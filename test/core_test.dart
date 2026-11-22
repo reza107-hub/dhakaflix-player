@@ -11,15 +11,20 @@ import 'package:http/testing.dart';
 void main() {
   group('paths', () {
     // Real hrefs from the server.
-    const nausicaa = '/DHAKA-FLIX-14/Animation%20Movies/%282000%29%20%26%20Before/'
+    const nausicaa =
+        '/DHAKA-FLIX-14/Animation%20Movies/%282000%29%20%26%20Before/'
         'Nausica%C3%A4%20of%20the%20Valley%20of%20the%20Wind%20%281984%29%20720p/';
-    const episode = '/DHAKA-FLIX-14/KOREAN%20TV%20%26%20WEB%20Series/18%20Again%20%28TV%20Series%202020%29%20720p%20'
+    const episode =
+        '/DHAKA-FLIX-14/KOREAN%20TV%20%26%20WEB%20Series/18%20Again%20%28TV%20Series%202020%29%20720p%20'
         '%5BDual%20Audio%5D/Season%201/18%20Again%20S01E01%20%20720p%20AMZN%20WEBRip%20x265%20HEVC%20ESub%20'
         '%5BDual%20Audio%5D%5BHindi%202.0%2BKorean%202.0%5D%20-MsMod.mkv';
 
     test('decodes unicode, &, (), [] and +', () {
       expect(nameOf(nausicaa), 'Nausicaä of the Valley of the Wind (1984) 720p');
-      expect(nameOf(episode), '18 Again S01E01  720p AMZN WEBRip x265 HEVC ESub [Dual Audio][Hindi 2.0+Korean 2.0] -MsMod.mkv');
+      expect(
+        nameOf(episode),
+        '18 Again S01E01  720p AMZN WEBRip x265 HEVC ESub [Dual Audio][Hindi 2.0+Korean 2.0] -MsMod.mkv',
+      );
       expect(decodeHref(parentOf(nausicaa)), '/DHAKA-FLIX-14/Animation Movies/(2000) & Before/');
     });
 
@@ -60,9 +65,27 @@ void main() {
     });
 
     test('seasons, case-insensitive, leading zeros, huge numbers', () {
-      final l = ['season 10', 'Season 9', 'Season 1', 'S01E09', 'S01E10', 'S02E01', 'x99999999999999999999', 'x100000000000000000000'];
+      final l = [
+        'season 10',
+        'Season 9',
+        'Season 1',
+        'S01E09',
+        'S01E10',
+        'S02E01',
+        'x99999999999999999999',
+        'x100000000000000000000',
+      ];
       l.sort(naturalCompare);
-      expect(l, ['S01E09', 'S01E10', 'S02E01', 'Season 1', 'Season 9', 'season 10', 'x99999999999999999999', 'x100000000000000000000']);
+      expect(l, [
+        'S01E09',
+        'S01E10',
+        'S02E01',
+        'Season 1',
+        'Season 9',
+        'season 10',
+        'x99999999999999999999',
+        'x100000000000000000000',
+      ]);
     });
 
     test('is a consistent total order', () {
@@ -111,18 +134,19 @@ void main() {
       final mock = MockClient((req) async {
         seen = req;
         return http.Response(
-            jsonEncode({
-              'items': [
-                {'href': '/', 'time': 1, 'size': null},
-                {'href': '/DHAKA-FLIX-14/', 'time': 1, 'size': null},
-                {'href': '/DHAKA-FLIX-14/Show/', 'time': 1, 'size': null},
-                {'href': folder, 'time': 1, 'size': null},
-                {'href': '${folder}E10.mkv', 'time': 1700000000000, 'size': 10},
-                {'href': '${folder}E2.mkv', 'time': 1, 'size': 20},
-                {'href': '${folder}Extras/', 'time': 1, 'size': null},
-              ]
-            }),
-            200);
+          jsonEncode({
+            'items': [
+              {'href': '/', 'time': 1, 'size': null},
+              {'href': '/DHAKA-FLIX-14/', 'time': 1, 'size': null},
+              {'href': '/DHAKA-FLIX-14/Show/', 'time': 1, 'size': null},
+              {'href': folder, 'time': 1, 'size': null},
+              {'href': '${folder}E10.mkv', 'time': 1700000000000, 'size': 10},
+              {'href': '${folder}E2.mkv', 'time': 1, 'size': 20},
+              {'href': '${folder}Extras/', 'time': 1, 'size': null},
+            ],
+          }),
+          200,
+        );
       });
       final c = DhakaFlixClient(src, httpClient: mock);
       final l = await c.list(folder);
@@ -135,7 +159,7 @@ void main() {
       expect(seen.headers['User-Agent'], userAgent);
       expect(jsonDecode(seen.body), {
         'action': 'get',
-        'items': {'href': folder, 'what': 1}
+        'items': {'href': folder, 'what': 1},
       });
     });
 
@@ -146,13 +170,14 @@ void main() {
         calls++;
         body = jsonDecode(req.body) as Map;
         return http.Response(
-            jsonEncode({
-              'search': [
-                {'href': '/DHAKA-FLIX-14/A%20(Men)/', 'time': 1, 'size': null},
-                {'href': '/ELSEWHERE/x.mkv', 'time': 1, 'size': 5},
-              ]
-            }),
-            200);
+          jsonEncode({
+            'search': [
+              {'href': '/DHAKA-FLIX-14/A%20(Men)/', 'time': 1, 'size': null},
+              {'href': '/ELSEWHERE/x.mkv', 'time': 1, 'size': 5},
+            ],
+          }),
+          200,
+        );
       });
       final c = DhakaFlixClient(src, httpClient: mock);
       expect(await c.search('ab').results, isEmpty);

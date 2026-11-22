@@ -49,3 +49,6 @@ app.*.map.json
 
 # Local tool/assistant state
 .claude/
+
+# Project-local Gradle cache (see tool/env.sh)
+.gradle-home/

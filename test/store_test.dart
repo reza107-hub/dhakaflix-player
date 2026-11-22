@@ -6,17 +6,24 @@ void main() {
   setUp(() async => store = await Store.open(inMemory: true));
   tearDown(() => store.close());
 
-  Future<void> save(String path, int posMin, {int durMin = 100, int size = 1, int at = 0, String? audio, String? sub}) =>
-      store.saveProgress(
-        relPath: path,
-        size: size,
-        href: '/DHAKA-FLIX-14/$path',
-        position: Duration(minutes: posMin),
-        duration: Duration(minutes: durMin),
-        audioTrack: audio,
-        subtitleTrack: sub,
-        now: DateTime.fromMillisecondsSinceEpoch(at),
-      );
+  Future<void> save(
+    String path,
+    int posMin, {
+    int durMin = 100,
+    int size = 1,
+    int at = 0,
+    String? audio,
+    String? sub,
+  }) => store.saveProgress(
+    relPath: path,
+    size: size,
+    href: '/DHAKA-FLIX-14/$path',
+    position: Duration(minutes: posMin),
+    duration: Duration(minutes: durMin),
+    audioTrack: audio,
+    subtitleTrack: sub,
+    now: DateTime.fromMillisecondsSinceEpoch(at),
+  );
 
   test('saves and reads back progress keyed by path + size', () async {
     await save('Movies/A (2000)/a.mkv', 10, audio: 'hin', sub: 'eng:1');

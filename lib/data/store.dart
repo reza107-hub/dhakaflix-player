@@ -35,16 +35,16 @@ class HistoryItem {
   final String? subtitleTrack;
 
   static HistoryItem _fromRow(Map<String, Object?> r) => HistoryItem(
-        relPath: r['rel_path']! as String,
-        size: r['size']! as int,
-        href: r['href']! as String,
-        position: Duration(milliseconds: r['position_ms']! as int),
-        duration: Duration(milliseconds: r['duration_ms']! as int),
-        lastWatched: DateTime.fromMillisecondsSinceEpoch(r['last_watched']! as int),
-        watched: r['watched'] == 1,
-        audioTrack: r['audio_track'] as String?,
-        subtitleTrack: r['subtitle_track'] as String?,
-      );
+    relPath: r['rel_path']! as String,
+    size: r['size']! as int,
+    href: r['href']! as String,
+    position: Duration(milliseconds: r['position_ms']! as int),
+    duration: Duration(milliseconds: r['duration_ms']! as int),
+    lastWatched: DateTime.fromMillisecondsSinceEpoch(r['last_watched']! as int),
+    watched: r['watched'] == 1,
+    audioTrack: r['audio_track'] as String?,
+    subtitleTrack: r['subtitle_track'] as String?,
+  );
 }
 
 class Store {
@@ -99,7 +99,8 @@ class Store {
     DateTime? now,
   }) async {
     final watched = duration > Duration.zero && position.inMilliseconds >= duration.inMilliseconds * watchedThreshold;
-    await _db.rawInsert('''
+    await _db.rawInsert(
+      '''
       INSERT INTO history(rel_path, size, href, position_ms, duration_ms, last_watched, watched, audio_track, subtitle_track)
       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(rel_path, size) DO UPDATE SET
@@ -110,17 +111,19 @@ class Store {
         watched = excluded.watched,
         audio_track = COALESCE(excluded.audio_track, history.audio_track),
         subtitle_track = COALESCE(excluded.subtitle_track, history.subtitle_track)
-    ''', [
-      relPath,
-      size,
-      href,
-      position.inMilliseconds,
-      duration.inMilliseconds,
-      (now ?? DateTime.now()).millisecondsSinceEpoch,
-      watched ? 1 : 0,
-      audioTrack,
-      subtitleTrack,
-    ]);
+    ''',
+      [
+        relPath,
+        size,
+        href,
+        position.inMilliseconds,
+        duration.inMilliseconds,
+        (now ?? DateTime.now()).millisecondsSinceEpoch,
+        watched ? 1 : 0,
+        audioTrack,
+        subtitleTrack,
+      ],
+    );
   }
 
   Future<HistoryItem?> progress(String relPath, int size) async {
@@ -130,8 +133,12 @@ class Store {
 
   /// Unfinished items, most recent first.
   Future<List<HistoryItem>> continueWatching({int limit = 50}) async {
-    final rows = await _db.query('history',
-        where: 'watched = 0 AND position_ms > 0', orderBy: 'last_watched DESC', limit: limit);
+    final rows = await _db.query(
+      'history',
+      where: 'watched = 0 AND position_ms > 0',
+      orderBy: 'last_watched DESC',
+      limit: limit,
+    );
     return rows.map(HistoryItem._fromRow).toList();
   }
 

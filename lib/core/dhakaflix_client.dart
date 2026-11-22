@@ -73,8 +73,7 @@ class SearchHandle {
 }
 
 class DhakaFlixClient {
-  DhakaFlixClient(this.source, {http.Client? httpClient, this.maxConcurrent = 3})
-      : _http = httpClient ?? http.Client();
+  DhakaFlixClient(this.source, {http.Client? httpClient, this.maxConcurrent = 3}) : _http = httpClient ?? http.Client();
 
   final DhakaFlixSource source;
   final http.Client _http;
@@ -132,7 +131,7 @@ class DhakaFlixClient {
     Future<void>? abort,
   }) async {
     final url = Uri.parse('${source.urlFor(folderHref)}?');
-    for (var attempt = 0;; attempt++) {
+    for (var attempt = 0; ; attempt++) {
       await _acquire();
       try {
         final req = http.AbortableRequest('POST', url, abortTrigger: abort)
