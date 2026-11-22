@@ -2,6 +2,7 @@
 /// (touch controls on Android, desktop controls with shortcuts elsewhere).
 library;
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
@@ -9,7 +10,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../app.dart';
 import '../core/dhakaflix_client.dart';
+import '../core/media_names.dart';
+import '../data/store.dart';
 import 'player_controller.dart';
 
 const playbackSpeeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -45,6 +49,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       },
     );
     c.addListener(_changed);
+    c.onFinished = _onFinished;
     c.open(widget.entry, siblings: widget.siblings).catchError((Object e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     });
@@ -52,6 +57,41 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  // ---- Auto-play next episode ----
+
+  static const nextCountdownSeconds = 5;
+  Timer? _nextTimer;
+  int? _nextIn; // Seconds left in the countdown, null when not counting.
+
+  Future<void> _onFinished() async {
+    final next = c.nextUp;
+    if (next == null || !mounted) return;
+    if (await AppScope.read(context).store.setting(Settings.autoPlayNext) == 'false') return;
+    if (!mounted) return;
+    setState(() => _nextIn = nextCountdownSeconds);
+    _nextTimer?.cancel();
+    _nextTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      if (_nextIn! <= 1) {
+        t.cancel();
+        _playNext();
+      } else {
+        setState(() => _nextIn = _nextIn! - 1);
+      }
+    });
+  }
+
+  void _cancelNext() {
+    _nextTimer?.cancel();
+    setState(() => _nextIn = null);
+  }
+
+  Future<void> _playNext() async {
+    _nextTimer?.cancel();
+    setState(() => _nextIn = null);
+    await c.playNext();
   }
 
   @override
@@ -64,6 +104,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.removeObserver(this);
     _exitListener.dispose();
     c.removeListener(_changed);
+    _nextTimer?.cancel();
     c.close();
     super.dispose();
   }
@@ -135,9 +176,17 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     },
   );
 
+  Widget _nextButton() => c.nextUp == null
+      ? const SizedBox.shrink()
+      : IconButton(
+          tooltip: 'Next episode',
+          icon: const Icon(Icons.skip_next, color: Colors.white),
+          onPressed: _playNext,
+        );
+
   Widget _title() => Expanded(
     child: Text(
-      widget.entry.name,
+      c.current?.name ?? widget.entry.name,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(color: Colors.white, fontSize: 15),
@@ -163,6 +212,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       bottomButtonBar: [
         const MaterialPositionIndicator(),
         const Spacer(),
+        _nextButton(),
         _menuButton(),
         const MaterialFullscreenButton(),
       ],
@@ -174,11 +224,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       toggleFullscreenOnDoublePress: true,
       topButtonBar: top,
       bottomButtonBar: [
-        const MaterialDesktopSkipPreviousButton(),
         const MaterialDesktopPlayOrPauseButton(),
         const MaterialDesktopVolumeButton(),
         const MaterialDesktopPositionIndicator(),
         const Spacer(),
+        _nextButton(),
         _menuButton(),
         const MaterialDesktopFullscreenButton(),
       ],
@@ -201,6 +251,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
               ),
               if (c.reconnecting != null) _Banner(text: c.reconnecting!, spinner: true),
               if (c.fatalError != null) _Banner(text: c.fatalError!, spinner: false),
+              if (_nextIn != null && c.nextUp != null)
+                _NextUp(name: c.nextUp!.name, seconds: _nextIn!, onPlay: _playNext, onCancel: _cancelNext),
             ],
           ),
         ),
@@ -253,7 +305,7 @@ class _PlayerMenu extends StatelessWidget {
     builder: (context, _) {
       final c = controller;
       final audio = c.audioTracks;
-      final currentAudio = c.player.state.track.audio.id;
+      final currentAudio = c.currentAudioId;
       final subs = c.subtitleOptions;
       return SafeArea(
         child: SingleChildScrollView(
@@ -290,6 +342,19 @@ class _PlayerMenu extends StatelessWidget {
                   onPlus: () => c.setSubtitleDelay(c.subtitleDelay + 0.1),
                 ),
               ],
+              if (c.versions.isNotEmpty) ...[
+                const _Heading('Version'),
+                for (final v in c.versions)
+                  _Choice(
+                    label: resolutionLabel(resolutionOf(v.name)!),
+                    detail: formatSize(v.size),
+                    selected: v.href == c.current?.href,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      c.switchVersion(v);
+                    },
+                  ),
+              ],
               const _Heading('Speed'),
               Wrap(
                 spacing: 8,
@@ -307,6 +372,58 @@ class _PlayerMenu extends StatelessWidget {
         ),
       );
     },
+  );
+}
+
+class _NextUp extends StatelessWidget {
+  const _NextUp({required this.name, required this.seconds, required this.onPlay, required this.onCancel});
+  final String name;
+  final int seconds;
+  final VoidCallback onPlay, onCancel;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.bottomRight,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      child: Material(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Next episode in $seconds s', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 4),
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(onPressed: onCancel, child: const Text('Cancel')),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: onPlay,
+                      icon: const Icon(Icons.skip_next),
+                      label: const Text('Play now'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }
 

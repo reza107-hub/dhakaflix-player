@@ -242,9 +242,11 @@ void main() {
       seconds: 300,
     );
     final after = c.player.state.position;
-    log('  end state: reconnecting="${c.reconnecting}" playing=${c.player.state.playing} '
-        'buffering=${c.player.state.buffering} pos=${after.inSeconds}s '
-        'idle=${await prop(c, 'idle-active')} cache=${await prop(c, 'paused-for-cache')} path=${(await prop(c, 'path'))?.length}');
+    log(
+      '  end state: reconnecting="${c.reconnecting}" playing=${c.player.state.playing} '
+      'buffering=${c.player.state.buffering} pos=${after.inSeconds}s '
+      'idle=${await prop(c, 'idle-active')} cache=${await prop(c, 'paused-for-cache')} path=${(await prop(c, 'path'))?.length}',
+    );
     expect(recovered, isTrue, reason: 'did not recover; pos=$after');
     // Resumed near where it stalled: no restart from 0, no big jump.
     expect((after - stalledAt).inSeconds, inInclusiveRange(0, 60), reason: 'stalled $stalledAt, now $after');

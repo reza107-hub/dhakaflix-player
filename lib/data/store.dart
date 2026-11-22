@@ -52,11 +52,10 @@ class Store {
   final Database _db;
 
   /// Opens the database in the app support folder, or in memory for tests.
-  static Future<Store> open({bool inMemory = false}) async {
+  /// [fileName] lets tests use their own file instead of the user's history.
+  static Future<Store> open({bool inMemory = false, String fileName = 'dhakaflix.db'}) async {
     sqfliteFfiInit();
-    final path = inMemory
-        ? inMemoryDatabasePath
-        : p.join((await getApplicationSupportDirectory()).path, 'dhakaflix.db');
+    final path = inMemory ? inMemoryDatabasePath : p.join((await getApplicationSupportDirectory()).path, fileName);
     final db = await databaseFactoryFfi.openDatabase(
       path,
       options: OpenDatabaseOptions(version: 1, onCreate: (db, _) => _create(db)),

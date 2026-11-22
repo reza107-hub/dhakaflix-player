@@ -19,7 +19,7 @@ else
 fi
 trap net_on EXIT
 
-flutter test integration_test/player_test.dart -d "$device" ${2:+--plain-name "$2"} --reporter expanded 2>&1 | tee "$log" |
+flutter test integration_test/player_test.dart -d "$device" --no-uninstall ${2:+--plain-name "$2"} --reporter expanded 2>&1 | tee "$log" |
 while IFS= read -r line; do
   case "$line" in
     *PH2*|*"+"*:*|*rror*|*FAIL*|*Expected*|*Actual*|*Reason*) echo "$line" ;;

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../core/dhakaflix_client.dart';
+import '../core/media_names.dart';
 import '../core/source.dart';
 import '../data/store.dart';
 import 'sidecar.dart';
@@ -59,6 +60,7 @@ class PlayerController extends ChangeNotifier {
   final _subs = <StreamSubscription<Object?>>[];
 
   Entry? _current;
+  List<Entry> _siblings = const [];
   List<SubtitleOption> _sidecars = const [];
   String _subtitleKey = SubtitleOption.off.key;
   Timer? _saveTimer;
@@ -86,7 +88,37 @@ class PlayerController extends ChangeNotifier {
   VoidCallback? onFinished;
 
   Entry? get current => _current;
+
+  /// Other resolutions of the current file in the same folder (empty if none).
+  List<Entry> get versions => _current == null ? const [] : versionsOf(_current!, _siblings);
+
+  /// The next episode in the same folder, if the current file is an episode.
+  Entry? get nextUp => _current == null ? null : nextEpisode(_current!, _siblings);
+
+  /// Reopens another version of the current file at the same position.
+  Future<void> switchVersion(Entry e) async {
+    if (e.href == _current?.href) return;
+    final at = player.state.position;
+    await open(e, siblings: _siblings, startAt: at);
+  }
+
+  /// Plays the next episode from where it was left (or the start).
+  Future<void> playNext() async {
+    final n = nextUp;
+    if (n != null) await open(n, siblings: _siblings);
+  }
+
   String get subtitleKey => _subtitleKey;
+
+  /// The audio track actually playing. media_kit reports "auto" until a track
+  /// is chosen, so ask mpv which one it picked.
+  String? _audioId;
+  String? get currentAudioId => _audioId;
+
+  Future<void> _refreshAudioId() async {
+    final p = player.platform;
+    if (p is NativePlayer) _audioId = await p.getProperty('aid');
+  }
 
   Duration seekStep = const Duration(seconds: 10);
   double _subScale = 1.0;
@@ -122,11 +154,13 @@ class PlayerController extends ChangeNotifier {
   ];
 
   /// Opens [entry] (a video file inside the source) and resumes it.
-  Future<void> open(Entry entry, {List<Entry> siblings = const []}) async {
+  /// [startAt] overrides the saved position (used when switching versions).
+  Future<void> open(Entry entry, {List<Entry> siblings = const [], Duration? startAt}) async {
     final url = source.urlFor(entry.href);
     if (!source.allows(url)) throw ArgumentError('Refusing to play outside DhakaFlix: $url');
     await _saveNow();
     _current = entry;
+    _siblings = siblings;
     fatalError = null;
     reconnecting = null;
     _reconnectAttempt = 0;
@@ -137,10 +171,11 @@ class PlayerController extends ChangeNotifier {
     ];
     seekStep = Duration(seconds: int.tryParse(await store.setting(Settings.seekSeconds) ?? '') ?? 10);
     final saved = await store.progress(source.relativePath(entry.href), entry.size ?? 0);
-    final start = (saved != null && !saved.watched) ? saved.position : Duration.zero;
+    final start = startAt ?? ((saved != null && !saved.watched) ? saved.position : Duration.zero);
     _lastGood = start;
     await _openAt(url, start);
     await _applyTrackChoices(saved);
+    await _refreshAudioId();
     _startSaving();
     notifyListeners();
   }
@@ -203,6 +238,7 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> selectAudio(AudioTrack t) async {
     await player.setAudioTrack(t);
+    _audioId = t.id;
     final key = '${t.id}:${t.language ?? ''}';
     if (t.language != null && t.language!.isNotEmpty) {
       await store.setSetting(Settings.preferredAudioLanguage, t.language!);
@@ -370,9 +406,12 @@ class PlayerController extends ChangeNotifier {
     final at = _lastGood;
     debugPrint('reconnect: server up, reopening at $at');
     await _openAt(source.urlFor(e.href), at);
-    debugPrint('reconnect: opened, duration=${player.state.duration} pos=${player.state.position} playing=${player.state.playing}');
+    debugPrint(
+      'reconnect: opened, duration=${player.state.duration} pos=${player.state.position} playing=${player.state.playing}',
+    );
     // Re-apply current choices (open() resets tracks).
     await _applyTrackChoices(await store.progress(source.relativePath(e.href), e.size ?? 0));
+    await _refreshAudioId();
     if (player.state.duration > Duration.zero) {
       reconnecting = null;
       _reconnectAttempt = 0;
