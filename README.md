@@ -85,10 +85,37 @@ several audio languages and styled subtitles.
 
 1. Download `DhakaFlixPlayer-<version>-windows-x64-setup.exe` and run it. No admin
    rights are needed.
-2. Windows may show **"Windows protected your PC"** (SmartScreen), because the
-   installer isn't code-signed. Click **More info → Run anyway**.
-3. Or use the **portable `.zip`**: unzip it anywhere and run `dhakaflix_player.exe`.
-   Keep all files together.
+2. Or use the **portable `.zip`**: first right-click the zip → **Properties** →
+   tick **Unblock** → **OK**, then extract it and run `dhakaflix_player.exe`.
+   Keep the whole folder together (the `.exe` needs the DLLs and the `data` folder).
+
+**The Windows build is not code-signed**, because trusted code-signing
+certificates cost money. Because of that, Windows may block it in one of two
+different ways:
+
+- **SmartScreen: "Windows protected your PC".** Click **More info →
+  Run anyway**.
+- **Smart App Control: "Error 4551: An Application Control policy has blocked
+  this file".** This one has **no "Run anyway" button**, and Microsoft says
+  there is currently no way to allow a single app.
+
+To check whether Smart App Control is on, open **Windows Security → App &
+browser control → Smart App Control settings**. It shows **On**, **Evaluation**
+or **Off**.
+
+If Smart App Control blocks the app, you have two options:
+
+1. **Use the Android app** (or Linux) instead.
+2. **Turn Smart App Control off** in that same settings page. Read the warning
+   Windows shows first. This lowers a protection for your whole PC, so it is
+   your own decision for your own computer. According to
+   [Microsoft's FAQ](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions),
+   recent Windows updates let you turn it back on later without reinstalling
+   Windows. On older Windows versions, or if S mode or "optional diagnostic
+   data" is off, turning it back on may need a reset or reinstall of Windows.
+   You also can't return to **Evaluation** mode once you leave it.
+
+The Android and Linux builds are not affected by any of this.
 
 Check the download against `SHA256SUMS` from the same release if you want to be sure it's genuine:
 `Get-FileHash .\DhakaFlixPlayer-*-setup.exe -Algorithm SHA256`.
@@ -128,7 +155,9 @@ default, auto-play next episode and clear history.
 | A video won't play | Some very old files (FLV/WMV) may fail. Open an issue with the file path. |
 | No picture-based subtitles | PGS/DVD (image) subtitles aren't supported yet; only text subtitles are. |
 | Choppy HEVC on Linux | Install the VAAPI driver (see above). |
-| Windows: SmartScreen blocks the app | **More info → Run anyway** (the app isn't code-signed). |
+| Windows: "Windows protected your PC" (SmartScreen) | **More info → Run anyway**. The app isn't code-signed. |
+| Windows: "Error 4551: An Application Control policy has blocked this file" | That's Smart App Control. There's no "Run anyway". See [Windows install](#windows) for your options. |
+| Windows: portable app won't start or is blocked | Right-click the zip → **Properties** → **Unblock**, then extract it again. Keep the folder together. |
 | Android: different server address won't load | Android allows plain HTTP only to the hosts built into the app; see [Requirements](#requirements). |
 
 ## Privacy
@@ -194,7 +223,14 @@ v3.0**; see [LICENSE](LICENSE). Third-party components and their licences
   মোবাইল ডেটায় কাজ করবে না।
 - **Android:** Releases থেকে `arm64-v8a` APK নামিয়ে ইনস্টল করুন। "Install unknown apps"
   চাইলে অনুমতি দিন।
-- **Windows:** `setup.exe` চালান। "Windows protected your PC" দেখালে **More info → Run anyway** চাপুন।
+- **Windows:** `setup.exe` চালান। অ্যাপটি code-signed নয় (সার্টিফিকেটের খরচ আছে), তাই Windows দুইভাবে আটকাতে পারে:
+  - "Windows protected your PC" (SmartScreen) দেখালে **More info → Run anyway** চাপুন।
+  - "Error 4551: An Application Control policy has blocked this file" দেখালে বুঝবেন এটা **Smart App Control**। এখানে "Run anyway" নেই।
+    এটা চালু আছে কিনা দেখতে: **Windows Security → App & browser control → Smart App Control settings** (On / Evaluation / Off)।
+    উপায় দুটি: Android অ্যাপ ব্যবহার করুন, অথবা Smart App Control বন্ধ করুন। বন্ধ করার আগে Windows-এর সতর্কবার্তা পড়ুন। এটা পুরো PC-র
+    সুরক্ষা কমায়, তাই সিদ্ধান্ত আপনার নিজের। নতুন Windows আপডেটে পরে আবার চালু করা যায়। পুরনো Windows-এ আবার চালু করতে reset/reinstall লাগতে পারে।
+  - Portable zip হলে: zip-এ right-click → **Properties** → **Unblock** টিক দিন, তারপর extract করুন। পুরো ফোল্ডার একসাথে রাখুন।
+  - Android ও Linux-এ এই সমস্যা নেই।
 - **Linux:** `sudo apt install ./dhakaflix-player_<version>_amd64.deb`
 - **প্রাইভেসি:** কোনো অ্যাকাউন্ট বা ট্র্যাকিং নেই। দেখার ইতিহাস শুধু আপনার ডিভাইসেই থাকে।
 - **দ্রষ্টব্য:** এটি অফিসিয়াল অ্যাপ নয়, DhakaFlix-এর সাথে এর কোনো সম্পর্ক নেই। অ্যাপটি কোনো কনটেন্ট
