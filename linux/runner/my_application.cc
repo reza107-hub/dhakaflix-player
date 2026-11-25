@@ -36,6 +36,9 @@ static void my_application_activate(GApplication* application) {
   gtk_window_set_title(window, "DhakaFlix Player");
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
+  // media_kit draws video through a shared EGL context, which Impeller does not
+  // expose: with Impeller on, video falls back to CPU (S/W) rendering and lags.
+  fl_dart_project_set_enable_impeller(project, FALSE);
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
 

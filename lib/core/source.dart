@@ -25,7 +25,7 @@ const defaultBaseUrl = 'http://172.16.50.14/DHAKA-FLIX-14/';
 const knownHosts = {'172.16.50.14', '172.16.50.7', '172.16.50.12', '172.16.50.10'};
 
 /// Keep in sync with `version:` in pubspec.yaml.
-const appVersion = '1.1.0';
+const appVersion = '1.1.1';
 const userAgent = 'DhakaFlixPlayer/$appVersion';
 
 /// Source id given to a custom address carried over from v1.0.0 settings.

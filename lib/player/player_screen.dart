@@ -30,7 +30,13 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver {
-  late final VideoController _video = VideoController(widget.controller.player);
+  // Linux: 'auto' (GPU decode + direct GL interop) silently falls back to CPU
+  // decoding on many Wayland/EGL setups. 'auto-copy' decodes on the GPU and
+  // copies frames back, which works wherever VA-API does.
+  late final VideoController _video = VideoController(
+    widget.controller.player,
+    configuration: VideoControllerConfiguration(hwdec: Platform.isLinux ? 'auto-copy' : null),
+  );
   late final AppLifecycleListener _exitListener;
   BuildContext? _controlsContext; // A context inside the controls, for fullscreen calls.
   double _volumeBeforeMute = 100;
@@ -176,6 +182,22 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     },
   );
 
+  Widget _mpvButton() => IconButton(
+    tooltip: 'Open in mpv (smoother on Linux)',
+    icon: const Icon(Icons.open_in_new, color: Colors.white),
+    onPressed: () async {
+      try {
+        await c.openInMpv();
+      } on ProcessException {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('mpv is not installed. Install it with: sudo apt install mpv')),
+          );
+        }
+      }
+    },
+  );
+
   Widget _nextButton() => c.nextUp == null
       ? const SizedBox.shrink()
       : IconButton(
@@ -196,7 +218,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     final step = c.seekStep;
-    final top = [_backButton(), _title(), _grab()];
+    final top = [_backButton(), _title(), if (Platform.isLinux) _mpvButton(), _grab()];
     // Keep controls clear of the status/navigation bars outside fullscreen.
     MaterialVideoControlsThemeData mobileTheme(EdgeInsets padding) => MaterialVideoControlsThemeData(
       padding: padding,

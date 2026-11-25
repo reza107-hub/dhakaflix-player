@@ -3,6 +3,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -355,6 +356,65 @@ class PlayerController extends ChangeNotifier {
       audioTrack: audioTrack,
       subtitleTrack: subtitleTrack,
     );
+  }
+
+  // ---- Linux fallback: external mpv ----
+
+  /// Plays the current file in the system `mpv` (smooth on Linux), then saves
+  /// the position mpv reached and resumes the built-in player from there.
+  /// Throws [ProcessException] if mpv is not installed.
+  Future<void> openInMpv() async {
+    final e = _current;
+    if (e == null) return;
+    final url = source.urlFor(e.href);
+    if (!source.allows(url)) return;
+    await player.pause();
+    await _saveNow();
+    final sock = '${Directory.systemTemp.path}/dhakaflix-mpv-$pid.sock';
+    final proc = await Process.start('mpv', [
+      '--start=${_lastGood.inSeconds}',
+      '--force-media-title=${e.name}',
+      '--input-ipc-server=$sock',
+      '--hwdec=auto',
+      '--',
+      url.toString(),
+    ]);
+    var pos = _lastGood;
+    var dur = _knownDuration;
+    var exited = false;
+    final exit = proc.exitCode.then((_) => exited = true);
+    Socket? ipc;
+    final lines = <String>[];
+    while (!exited) {
+      await Future.any([exit, Future.delayed(const Duration(seconds: 3))]);
+      if (exited) break;
+      try {
+        if (ipc == null) {
+          ipc = await Socket.connect(InternetAddress(sock, type: InternetAddressType.unix), 0);
+          ipc.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter()).listen(lines.add, onError: (_) {});
+        }
+        ipc.write('{"command":["get_property","time-pos"],"request_id":1}\n'
+            '{"command":["get_property","duration"],"request_id":2}\n');
+        await Future.delayed(const Duration(milliseconds: 200));
+        for (final l in lines) {
+          final m = jsonDecode(l);
+          if (m is! Map || m['data'] is! num) continue;
+          final d = Duration(milliseconds: ((m['data'] as num) * 1000).round());
+          if (m['request_id'] == 1) pos = d;
+          if (m['request_id'] == 2) dur = d;
+        }
+        lines.clear();
+      } catch (_) {
+        // mpv not ready yet or already closing.
+      }
+    }
+    ipc?.destroy();
+    if (_disposed) return;
+    _lastGood = pos;
+    if (dur > Duration.zero) _knownDuration = dur;
+    await _saveNow();
+    if (_disposed) return;
+    await player.seek(pos);
   }
 
   // ---- End of file and recovery ----

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 – smooth video on Linux
+
+- Fixed video lag on Linux. Video is now drawn on the GPU instead of the CPU
+  (CPU use for a 1080p HEVC file dropped from about 250% to normal).
+- Linux: new "Open in mpv" button in the player. It plays the file in mpv from
+  the same point, and your position is saved back when you close mpv.
+
 ## 1.1.0 – more servers
 
 - Four DhakaFlix servers built in: DHAKA-FLIX-14, DHAKA-FLIX-7, DHAKA-FLIX-12
